@@ -2,44 +2,52 @@
 
 int	main(void)
 {
-	struct timeval tv;
+	// struct timeval tv;
 	printf("\033c");
-	int t = gettimeofday(&tv, NULL);
-	dongle_t	dongle = {.ms_cooldown = 100};
+	pthread_mutex_t log_mtx;
 	pthread_mutexattr_t attr;
 	pthread_mutexattr_init(&attr);
-	pthread_mutex_init(&dongle.mtx, &attr);
+	pthread_mutex_init(&log_mtx, &attr);
 	pthread_mutexattr_destroy(&attr);
 
+
+	// int t = gettimeofday(&tv, NULL);
+	dongle_t	dongle_l = {.ms_cooldown = -1000};
+	dongle_t	dongle_r = {.ms_cooldown = -1000};
+	pthread_mutexattr_init(&attr);
+	pthread_mutex_init(&dongle_l.mtx, &attr);
+	pthread_mutex_init(&dongle_r.mtx, &attr);
+	pthread_mutexattr_destroy(&attr);
+	
 	coder_t	coder = {.id = 0,
 					.ms_burn = 1000,
-					.ms_compile = 100,
-					.ms_refactor = 100,
-					.ms_debug = 100,
-					.comp_counter = 10,
-					.d_left = &dongle,
-					.d_right = NULL};
-
-	coder_t	coder_1 = {.id = 1,
-					.ms_burn = 1000,
+					.burn_counter_ms = 0,
 					.ms_compile = 100,
 					.ms_refactor = 100,
 					.ms_debug = 100,
 					.comp_counter = 5,
-					.d_left = &dongle,
-					.d_right = NULL};
+					.d_left = &dongle_l,
+					.d_right = &dongle_r,
+					.cooldown = 100,
+					.log_mtx = &log_mtx};
 
-	
-	t = gettimeofday(&tv, NULL);
-		
-	// printf("%lld\n",(tv.tv_sec * 1000 + tv.tv_usec / 1000));
-	pthread_t t1 = ft_loop(&coder);
-	pthread_t t2 =ft_loop(&coder_1);
-		
-	t = gettimeofday(&tv, NULL);
-	// printf("%lld\n",(tv.tv_sec * 1000 + tv.tv_usec / 1000));
-	
-	pthread_join(t1, NULL);
-	pthread_join(t2, NULL);
+	coder_t	coder_1 = {.id = 1,
+					.ms_burn = 1000,
+					.burn_counter_ms = 0,
+					.ms_compile = 100,
+					.ms_refactor = 100,
+					.ms_debug = 100,
+					.comp_counter = 5,
+					.d_left = &dongle_l,
+					.d_right = &dongle_r,
+					.cooldown = 100,
+					.log_mtx = &log_mtx};
+
+
+	ft_start(2, &coder, &coder_1);
+
+	ft_join(2, &coder, &coder_1);
+	// pthread_join(t1, NULL);
+	// pthread_join(t2, NULL);
 
 }
