@@ -1,24 +1,6 @@
 #include "codex.h"
 
-void	ft_log(uint32_t timestamp, uint32_t id, char *message)
-{
-	printf("%d %d %s\n", timestamp, id, message);
-}
 
-uint32_t	ft_timestamp()
-{
-	static long long	start_ms;
-	static int			flag;
-	struct				timeval tv;
-	if (!flag && gettimeofday(&tv, 0) == 0)
-	{
-		flag = 1;
-		start_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-	}
-	if (gettimeofday(&tv, 0) == 0)
-		return ((tv.tv_sec * 1000 + tv.tv_usec / 1000) - start_ms);
-	return(0);
-}
 
 void	*ft_handler(void *coder_v)
 {
@@ -29,11 +11,9 @@ void	*ft_handler(void *coder_v)
 	while (coder->comp_counter)
 	{
 		timestamp = ft_timestamp();
-		// printf("llooop left %d\n", !(timestamp - coder->d_left->ms_cooldown >= coder->cooldown));
-		// printf("llooop right %d\n", !(timestamp - coder->d_right->ms_cooldown >= coder->cooldown));
-		if ((!(timestamp - coder->d_left->ms_cooldown >= coder->cooldown)) || 
-		(!(timestamp - coder->d_right->ms_cooldown >= coder->cooldown)))
-			continue ;
+		// if ((!(timestamp - coder->d_left->ms_cooldown >= coder->cooldown)) || 
+		// (!(timestamp - coder->d_right->ms_cooldown >= coder->cooldown)))
+			// continue ;
 		pthread_mutex_lock(&coder->d_left->mtx);
 		pthread_mutex_lock(&coder->d_right->mtx);
 		coder->comp_counter--;
@@ -42,53 +22,77 @@ void	*ft_handler(void *coder_v)
 		coder->burn_counter_ms = timestamps[0];
 		pthread_mutex_unlock(&coder->d_left->mtx);
 		pthread_mutex_unlock(&coder->d_right->mtx);
+		timestamps[1] = ft_timestamp();					//debug
 		coder->d_left->ms_cooldown = timestamps[1];
 		coder->d_right->ms_cooldown = timestamps[1];
-		timestamps[1] = ft_timestamp();					//debug
-		// printf("\nts1 %d\n\n", timestamps[1]);
 		usleep(coder->ms_debug * 1000);
 		timestamps[2] = ft_timestamp();					//refactor
 		usleep(coder->ms_refactor * 1000);
-		// timestamp = ft_timestamp();
-		// pthread_mutex_lock(coder->log_mtx);
 		ft_log(timestamps[0], coder->id, "is compiling");
 		ft_log(timestamps[1], coder->id, "is debugging");
 		ft_log(timestamps[2], coder->id, "is refactoring");
-		// printf("tslast %d\n", timestamp);
-		// printf("burnout timer id [%d] [%d]\n", coder->id, timestamp - coder->burn_counter_ms);
-		// printf("dongle left timer id [%d] [%d] [%d]\n", timestamp, coder->d_left->ms_cooldown, timestamp - coder->d_left->ms_cooldown);
-		// printf("dongle right timer id [%d] [%d] [%d]\n", timestamp, coder->d_right->ms_cooldown, timestamp - coder->d_right->ms_cooldown);
-		// pthread_mutex_unlock(coder->log_mtx);
 	}
+	return (NULL);
 }
 
-void	ft_start(int num, ...)
+void	ft_start(coder_t coders[])
 {
 	pthread_t	thread_id;
-	va_list		args;
-	coder_t		*coder;
+	// coder_t		*coder;
+	int			i;
 
-	va_start(args, num);
-	while (num > 0)
+	i = 0;
+	while (coders[i].id != -1)
 	{
-		coder = va_arg(args, coder_t*);
-		pthread_create(&thread_id, NULL, ft_handler, (void *)coder);
-		coder->thread_id = thread_id;
-		num--;
+		pthread_create(&thread_id, NULL, ft_handler, (void *)(&coders[i]));
+		coders[i].thread_id = thread_id;
+		// printf("%d id %lu\n", coders[i].id, thread_id);
+		i++;
 	}
-	va_end(args);
 }
 
-void	ft_join(int num, ...)
+void	ft_join(coder_t coders[])
 {
-	va_list		args;
-	coder_t		*coder;
-
-	va_start(args, num);
-	while (num > 0)
+	// va_list		args;
+	// coder_t		*coder;
+	int			i;
+	// va_start(args, num);
+	i = 0;
+	while (coders[i].id != -1)
 	{
-		coder = va_arg(args, coder_t*);
-		pthread_join(coder->thread_id, NULL);
-		num--;
+		// printf("%d %lu\n", coders[i].id, coders[i].thread_id);
+		pthread_join(coders[i].thread_id, NULL);
+		i++;
 	}
 }
+
+// void	ft_start(int num, ...)
+// {
+// 	pthread_t	thread_id;
+// 	va_list		args;
+// 	coder_t		*coder;
+
+// 	va_start(args, num);
+// 	while (num > 0)
+// 	{
+// 		coder = va_arg(args, coder_t*);
+// 		pthread_create(&thread_id, NULL, ft_handler, (void *)coder);
+// 		coder->thread_id = thread_id;
+// 		num--;
+// 	}
+// 	va_end(args);
+// }
+
+// void	ft_join(int num, ...)
+// {
+// 	va_list		args;
+// 	coder_t		*coder;
+
+// 	va_start(args, num);
+// 	while (num > 0)
+// 	{
+// 		coder = va_arg(args, coder_t*);
+// 		pthread_join(coder->thread_id, NULL);
+// 		num--;
+// 	}
+// }
