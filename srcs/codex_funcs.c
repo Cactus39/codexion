@@ -37,28 +37,28 @@ void	*ft_handler(void *coder_v)
 		pthread_mutex_lock(&coder->d_left->mtx);
 		pthread_mutex_lock(&coder->d_right->mtx);
 		coder->comp_counter--;
-		timestamps[0] = ft_timestamp();
-		coder->burn_counter_ms = timestamps[0];
 		usleep(coder->ms_compile * 1000);
+		timestamps[0] = ft_timestamp(); 				//compile
+		coder->burn_counter_ms = timestamps[0];
 		pthread_mutex_unlock(&coder->d_left->mtx);
 		pthread_mutex_unlock(&coder->d_right->mtx);
-		timestamps[1] = ft_timestamp();
-		// printf("\nts1 %d\n\n", timestamps[1]);
 		coder->d_left->ms_cooldown = timestamps[1];
 		coder->d_right->ms_cooldown = timestamps[1];
+		timestamps[1] = ft_timestamp();					//debug
+		// printf("\nts1 %d\n\n", timestamps[1]);
 		usleep(coder->ms_debug * 1000);
-		timestamps[2] = ft_timestamp();
+		timestamps[2] = ft_timestamp();					//refactor
 		usleep(coder->ms_refactor * 1000);
-		timestamp = ft_timestamp();
-		pthread_mutex_lock(coder->log_mtx);
+		// timestamp = ft_timestamp();
+		// pthread_mutex_lock(coder->log_mtx);
 		ft_log(timestamps[0], coder->id, "is compiling");
 		ft_log(timestamps[1], coder->id, "is debugging");
 		ft_log(timestamps[2], coder->id, "is refactoring");
 		// printf("tslast %d\n", timestamp);
-		printf("burnout timer id [%d] [%d]\n", coder->id, timestamp - coder->burn_counter_ms);
-		printf("dongle left timer id [%d] [%d] [%d]\n", timestamp, coder->d_left->ms_cooldown, timestamp - coder->d_left->ms_cooldown);
-		printf("dongle right timer id [%d] [%d] [%d]\n", timestamp, coder->d_right->ms_cooldown, timestamp - coder->d_right->ms_cooldown);
-		pthread_mutex_unlock(coder->log_mtx);
+		// printf("burnout timer id [%d] [%d]\n", coder->id, timestamp - coder->burn_counter_ms);
+		// printf("dongle left timer id [%d] [%d] [%d]\n", timestamp, coder->d_left->ms_cooldown, timestamp - coder->d_left->ms_cooldown);
+		// printf("dongle right timer id [%d] [%d] [%d]\n", timestamp, coder->d_right->ms_cooldown, timestamp - coder->d_right->ms_cooldown);
+		// pthread_mutex_unlock(coder->log_mtx);
 	}
 }
 
