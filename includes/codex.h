@@ -55,7 +55,9 @@ void		ft_join(coder_t arr[]);
 uint32_t	ft_timestamp(void);
 void		ft_log(uint32_t timestamp, uint32_t id, char *message);
 
-coder_t	*ft_init_coders(settings_t *settings);
+coder_t	*ft_init_coders(settings_t *settings, dongle_t * dongles);
+dongle_t	*ft_init_dongles(settings_t *settings);
+
 
 
 #endif
