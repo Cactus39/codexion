@@ -10,7 +10,7 @@ settings_t	ft_parse_input(int argc, char **argv)
 		settings.time_to_compile = 10;
 		settings.time_to_debug = 10;
 		settings.time_to_refactor = 10;
-		settings.number_of_compiles_required = 4;
+		settings.number_of_compiles_required = 10;
 		settings.dongle_cooldown = 10;
 		strcpy(settings.scheduler, "fifo");
 		return settings;
@@ -77,6 +77,7 @@ coder_t	*ft_init_coders(settings_t *settings, dongle_t *dongles)
 		coders[i].d_left = &dongles[i];
 		coders[i].d_right = &dongles[(i + 1) % settings->number_of_coders];
 		coders[i].thread_id = 0;
+		coders[i].running = 1;
 		i++;
 	}
 	coders[i].id = -1;

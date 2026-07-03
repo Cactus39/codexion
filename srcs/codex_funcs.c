@@ -8,7 +8,7 @@ void	*ft_handler(void *coder_v)
 	uint32_t	timestamps[3];
 	uint32_t	timestamp;
 	coder = (coder_t *)coder_v;
-	while (coder->comp_counter)
+	while (coder->comp_counter && coder->running)
 	{
 		timestamp = ft_timestamp();
 		// if ((!(timestamp - coder->d_left->ms_cooldown >= coder->cooldown)) || 
@@ -37,27 +37,59 @@ void	*ft_handler(void *coder_v)
 	return (NULL);
 }
 
-// void	*ft_monitor(coder_t* coders)
-// {
+void	*ft_stop_monitor(coder_t* coders)
+{
+	int		i;
 
-// }
+	i = 0;
+	while (coders[i].id != -1)
+	{
+		coders[i].running = 0;
+		i++;
+	}
+}
+
 void	*ft_start_monitor(void *coders_v)
 {
 	pthread_t	monitor_id;
 	int			i;
+	uint32_t	ts;
 	coder_t		*coders;
-	
-	i = 0;
+	int			flag;
+
+	flag = 1;
 	coders = (coder_t*)coders_v;
+	while (flag)
+	{
+		i = 0;
+		ts = ft_timestamp();
+		while (coders[i].id != -1)
+		{
+			printf("[MONITORING]... coder id = %d coder burnout == %d limit == %d\n", 
+				coders[i].id, ts - coders[i].burn_counter_ms, coders[i].ms_burn);
+			if (ts - coders[i].burn_counter_ms > coders[i].ms_burn)
+			{
+				flag = 0;
+				ft_stop_monitor(coders);
+				break ;
+			}
+			i++;
+
+		}
+		printf("timestamp %d\n\n", ts);
+		usleep(10000);
+	}
+	i = 0;
+	ts = ft_timestamp();
 	while (coders[i].id != -1)
 	{
-		printf("[MONITORING]... coder id = %d coder burnout == %d limit == %d", 
-		coders[i].id, coders[i]. burn_counter_ms, coders[i].ms_burn);
-		i++;
-	}
-
-
+		printf("[MONITORING last]... coder id = %d coder burnout == %d limit == %d\n", 
+			coders[i].id, ts - coders[i].burn_counter_ms, coders[i].ms_burn);
+			i++;
+		}
+	printf("timestamp %d\n\n", ts);
 }
+
 void	ft_start(coder_t coders[])
 {
 	pthread_t	thread_id;

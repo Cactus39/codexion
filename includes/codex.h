@@ -44,7 +44,7 @@ typedef struct coder_s
 	dongle_t		*d_right;
 	// pthread_mutex_t	*log_mtx;
 	pthread_t		thread_id;
-	// int				cooldown;
+	int				running;
 }	coder_t;
 
 settings_t	ft_parse_input(int argc, char **argv);

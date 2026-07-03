@@ -20,6 +20,7 @@ int	main(int argc, char **argv)
 
 	
 	ft_join(coders);
+	pthread_join(monitor_id, NULL);
 	free(coders);
 	free(dongles);
 	
