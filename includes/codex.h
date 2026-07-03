@@ -58,6 +58,7 @@ void		ft_log(uint32_t timestamp, uint32_t id, char *message);
 coder_t	*ft_init_coders(settings_t *settings, dongle_t * dongles);
 dongle_t	*ft_init_dongles(settings_t *settings);
 
+void	*ft_start_monitor(void *coders);
 
 
 #endif

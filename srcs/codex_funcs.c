@@ -37,6 +37,27 @@ void	*ft_handler(void *coder_v)
 	return (NULL);
 }
 
+// void	*ft_monitor(coder_t* coders)
+// {
+
+// }
+void	*ft_start_monitor(void *coders_v)
+{
+	pthread_t	monitor_id;
+	int			i;
+	coder_t		*coders;
+	
+	i = 0;
+	coders = (coder_t*)coders_v;
+	while (coders[i].id != -1)
+	{
+		printf("[MONITORING]... coder id = %d coder burnout == %d limit == %d", 
+		coders[i].id, coders[i]. burn_counter_ms, coders[i].ms_burn);
+		i++;
+	}
+
+
+}
 void	ft_start(coder_t coders[])
 {
 	pthread_t	thread_id;

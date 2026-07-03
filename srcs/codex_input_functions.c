@@ -5,7 +5,7 @@ settings_t	ft_parse_input(int argc, char **argv)
 	settings_t	settings;
 	if (argc == 1)
 	{
-		settings.number_of_coders = 5;
+		settings.number_of_coders = 6;
 		settings.time_to_burnout = 10;
 		settings.time_to_compile = 10;
 		settings.time_to_debug = 10;
