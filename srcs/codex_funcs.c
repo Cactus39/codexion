@@ -1,6 +1,17 @@
 #include "codex.h"
 
+int		ft_validate_dongle(coder_t *coder)
+{
+	uint32_t	ts;
 
+	ts = ft_timestamp();
+	if (coder->d_left->is_busy || coder->d_right->is_busy)
+		return(0);
+	if ((ts - coder->d_left->cooldown_counter > coder->d_left->ms_cooldown) &&
+	(ts - coder->d_right->cooldown_counter > coder->d_right->ms_cooldown))
+		return (1);
+	return(0);
+}
 
 void	*ft_handler(void *coder_v)
 {
@@ -14,19 +25,25 @@ void	*ft_handler(void *coder_v)
 		// if ((!(timestamp - coder->d_left->ms_cooldown >= coder->cooldown)) || 
 		// (!(timestamp - coder->d_right->ms_cooldown >= coder->cooldown)))
 			// continue ;
+		// if (!ft_validate_dongle(coder))
+			// continue ;
 		pthread_mutex_lock(&coder->d_left->mtx);
 		pthread_mutex_lock(&coder->d_right->mtx);
+		coder->d_left->is_busy = 1;
+		coder->d_right->is_busy = 1;
 		// printf("Coder [%d] takes dongles [%d] and [%d]\n", coder->id, coder->d_left->id, coder->d_right->id);
 		coder->comp_counter--;
-		usleep(coder->ms_compile * 1000);
 		timestamps[0] = ft_timestamp(); 				//compile
+		usleep(coder->ms_compile * 1000);
 		coder->burn_counter_ms = timestamps[0];
 		// printf("Coder [%d] relases dongles [%d] and [%d]\n", coder->id, coder->d_left->id, coder->d_right->id);
 		pthread_mutex_unlock(&coder->d_left->mtx);
 		pthread_mutex_unlock(&coder->d_right->mtx);
+		coder->d_left->is_busy = 0;
+		coder->d_right->is_busy = 0;
 		timestamps[1] = ft_timestamp();					//debug
-		coder->d_left->ms_cooldown = timestamps[1];
-		coder->d_right->ms_cooldown = timestamps[1];
+		coder->d_left->cooldown_counter = timestamps[1];
+		coder->d_right->cooldown_counter = timestamps[1];
 		usleep(coder->ms_debug * 1000);
 		timestamps[2] = ft_timestamp();					//refactor
 		usleep(coder->ms_refactor * 1000);
@@ -90,28 +107,3 @@ void	*ft_start_monitor(void *coders_v)
 	printf("timestamp %d\n\n", ts);
 }
 
-void	ft_start(coder_t coders[])
-{
-	pthread_t	thread_id;
-	int			i;
-
-	i = 0;
-	while (coders[i].id != -1)
-	{
-		pthread_create(&thread_id, NULL, ft_handler, (void *)(&coders[i]));
-		coders[i].thread_id = thread_id;
-		i++;
-	}
-}
-
-void	ft_join(coder_t coders[])
-{
-	int			i;
-
-	i = 0;
-	while (coders[i].id != -1)
-	{
-		pthread_join(coders[i].thread_id, NULL);
-		i++;
-	}
-}

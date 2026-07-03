@@ -6,7 +6,7 @@ settings_t	ft_parse_input(int argc, char **argv)
 	if (argc == 1)
 	{
 		settings.number_of_coders = 6;
-		settings.time_to_burnout = 10;
+		settings.time_to_burnout = 30;
 		settings.time_to_compile = 10;
 		settings.time_to_debug = 10;
 		settings.time_to_refactor = 10;
@@ -47,6 +47,7 @@ dongle_t	*ft_init_dongles(settings_t *settings)
 	{
 		dongles[i].id = i;
 		dongles[i].ms_cooldown = settings->dongle_cooldown;
+		dongles[i].cooldown_counter = 0;
 		dongles[i].is_busy = 0;
 		pthread_mutex_init(&(dongles[i].mtx), &attr);
 		i++;
@@ -77,6 +78,7 @@ coder_t	*ft_init_coders(settings_t *settings, dongle_t *dongles)
 		coders[i].d_left = &dongles[i];
 		coders[i].d_right = &dongles[(i + 1) % settings->number_of_coders];
 		coders[i].thread_id = 0;
+		coders[i].log_mtx = settings->log_mtx;
 		coders[i].running = 1;
 		i++;
 	}
