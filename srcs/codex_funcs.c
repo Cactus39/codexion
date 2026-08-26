@@ -1,109 +1,78 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   codex_funcs.c                                      :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: dsutormi <dsutormi@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/08/25 18:47:25 by dsutormi          #+#    #+#             */
+/*   Updated: 2026/08/25 18:47:46 by dsutormi         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "codex.h"
 
-int		ft_validate_dongle(coder_t *coder)
+static void	ft_start_compile(void *c)
 {
-	uint32_t	ts;
-
-	ts = ft_timestamp();
-	if (coder->d_left->is_busy || coder->d_right->is_busy)
-		return(0);
-	if ((ts - coder->d_left->cooldown_counter > coder->d_left->ms_cooldown) &&
-	(ts - coder->d_right->cooldown_counter > coder->d_right->ms_cooldown))
-		return (1);
-	return(0);
+	pthread_mutex_lock(&(((t_coder *)c)->status_mtx));
+	pthread_mutex_lock(&((t_coder *)c)->d_left->mtx);
+	((t_coder *)c)->ms_l = ft_timestamp();
+	if (&((t_coder *)c)->d_right->mtx == &((t_coder *)c)->d_left->mtx)
+	{
+		pthread_mutex_unlock(&((t_coder *)c)->s->etx);
+		pthread_mutex_unlock(&((t_coder *)c)->d_left->mtx);
+		pthread_cancel(((t_coder *)c)->thread_id);
+	}
+	pthread_mutex_lock(&((t_coder *)c)->d_right->mtx);
+	((t_coder *)c)->ms_r = ft_timestamp();
+	((t_coder *)c)->bur_c_ms = ft_timestamp();
+	((t_coder *)c)->coms_left--;
+	pthread_mutex_unlock(&((t_coder *)c)->s->etx);
+	usleep(((t_coder *)c)->ms_compile * 1000);
 }
 
-void	*ft_handler(void *coder_v)
+static void	ft_finish_compile(void *c)
 {
-	coder_t		*coder;
-	uint32_t	timestamps[3];
-	uint32_t	timestamp;
-	coder = (coder_t *)coder_v;
-	while (coder->comp_counter && coder->running)
+	pthread_mutex_lock(&((t_coder *)c)->s->validate_mtx);
+	((t_coder *)c)->d_right->cld_count = ft_timestamp();
+	((t_coder *)c)->d_right->is_busy = 0;
+	((t_coder *)c)->d_left->is_busy = 0;
+	((t_coder *)c)->d_left->cld_count = ft_timestamp() + 1;
+	pthread_mutex_lock(&((t_coder *)c)->s->etx);
+	pthread_mutex_unlock(&((t_coder *)c)->d_left->mtx);
+	pthread_mutex_unlock(&((t_coder *)c)->d_right->mtx);
+	pthread_mutex_unlock(&((t_coder *)c)->s->etx);
+	pthread_mutex_unlock(&((t_coder *)c)->s->validate_mtx);
+	usleep(((t_coder *)c)->ms_debug * 1000);
+	((t_coder *)c)->ms_refac_started = ft_timestamp();
+	usleep(((t_coder *)c)->ms_refactor * 1000);
+}
+
+void	*ft_handler(void *c)
+{
+	while (((t_coder *)c)->coms_left && ((t_coder *)c)->running)
 	{
-		timestamp = ft_timestamp();
-		// if ((!(timestamp - coder->d_left->ms_cooldown >= coder->cooldown)) || 
-		// (!(timestamp - coder->d_right->ms_cooldown >= coder->cooldown)))
-			// continue ;
-		// if (!ft_validate_dongle(coder))
-			// continue ;
-		pthread_mutex_lock(&coder->d_left->mtx);
-		pthread_mutex_lock(&coder->d_right->mtx);
-		coder->d_left->is_busy = 1;
-		coder->d_right->is_busy = 1;
-		// printf("Coder [%d] takes dongles [%d] and [%d]\n", coder->id, coder->d_left->id, coder->d_right->id);
-		coder->comp_counter--;
-		timestamps[0] = ft_timestamp(); 				//compile
-		usleep(coder->ms_compile * 1000);
-		coder->burn_counter_ms = timestamps[0];
-		// printf("Coder [%d] relases dongles [%d] and [%d]\n", coder->id, coder->d_left->id, coder->d_right->id);
-		pthread_mutex_unlock(&coder->d_left->mtx);
-		pthread_mutex_unlock(&coder->d_right->mtx);
-		coder->d_left->is_busy = 0;
-		coder->d_right->is_busy = 0;
-		timestamps[1] = ft_timestamp();					//debug
-		coder->d_left->cooldown_counter = timestamps[1];
-		coder->d_right->cooldown_counter = timestamps[1];
-		usleep(coder->ms_debug * 1000);
-		timestamps[2] = ft_timestamp();					//refactor
-		usleep(coder->ms_refactor * 1000);
-		ft_log(timestamps[0], coder->id, "is compiling");
-		ft_log(timestamps[1], coder->id, "is debugging");
-		ft_log(timestamps[2], coder->id, "is refactoring");
+		pthread_mutex_lock(&((t_coder *)c)->s->etx);
+		while ((((t_coder *)c)->ready != 1))
+		{
+			pthread_cond_wait(&((t_coder *)c)->s->sig, &((t_coder *)c)->s->etx);
+			if (((t_coder *)c)->running == 0 || ((t_coder *)c)->s->pr_stat == 0)
+				break ;
+		}
+		if (((t_coder *)c)->running == 0 || ((t_coder *)c)->s->pr_stat == 0)
+		{
+			pthread_mutex_unlock(&((t_coder *)c)->s->etx);
+			break ;
+		}
+		ft_start_compile(c);
+		ft_finish_compile(c);
+		if (((t_coder *)c)->coms_left > 0 && ((t_coder *)c)->running)
+			((t_coder *)c)->ready = 2;
+		else
+			((t_coder *)c)->ready = 3;
+		ft_log(((t_coder *)c));
+		((t_coder *)c)->ms_finished = ft_timestamp();
+		pthread_mutex_unlock(&(((t_coder *)c)->status_mtx));
 	}
 	return (NULL);
 }
-
-void	*ft_stop_monitor(coder_t* coders)
-{
-	int		i;
-
-	i = 0;
-	while (coders[i].id != -1)
-	{
-		coders[i].running = 0;
-		i++;
-	}
-}
-
-void	*ft_start_monitor(void *coders_v)
-{
-	pthread_t	monitor_id;
-	int			i;
-	uint32_t	ts;
-	coder_t		*coders;
-	int			flag;
-
-	flag = 1;
-	coders = (coder_t*)coders_v;
-	while (flag)
-	{
-		i = 0;
-		ts = ft_timestamp();
-		while (coders[i].id != -1)
-		{
-			printf("[MONITORING]... coder id = %d coder burnout == %d limit == %d\n", 
-				coders[i].id, ts - coders[i].burn_counter_ms, coders[i].ms_burn);
-			if (ts - coders[i].burn_counter_ms > coders[i].ms_burn)
-			{
-				flag = 0;
-				ft_stop_monitor(coders);
-				break ;
-			}
-			i++;
-
-		}
-		printf("timestamp %d\n\n", ts);
-		usleep(10000);
-	}
-	i = 0;
-	ts = ft_timestamp();
-	while (coders[i].id != -1)
-	{
-		printf("[MONITORING last]... coder id = %d coder burnout == %d limit == %d\n", 
-			coders[i].id, ts - coders[i].burn_counter_ms, coders[i].ms_burn);
-			i++;
-		}
-	printf("timestamp %d\n\n", ts);
-}
-

@@ -1,17 +1,36 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   codex.h                                            :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: dsutormi <dsutormi@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/08/25 18:47:01 by dsutormi          #+#    #+#             */
+/*   Updated: 2026/08/25 18:47:06 by dsutormi         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #ifndef CODEX_H
-#define CODEX_H
+# define CODEX_H
 
-#include <stdio.h>  //DELETE
-#include <stdint.h>
-#include <pthread.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-#include <semaphore.h>
+# include <stdio.h>
+# include <stdint.h>
+# include <pthread.h>
+# include <sys/time.h>
+# include <unistd.h>
+# include <stdlib.h>
+# include <string.h>
 
-typedef struct settings_s
+typedef struct s_node
+{
+	uint32_t		value;
+	int				id;
+	struct s_node	*parent;
+	struct s_node	*left;
+	struct s_node	*right;
+}	t_node;
+
+typedef struct s_settings
 {
 	int					number_of_coders;
 	int					time_to_burnout;
@@ -21,49 +40,59 @@ typedef struct settings_s
 	int					number_of_compiles_required;
 	int					dongle_cooldown;
 	char				scheduler[5];
-	pthread_mutex_t		*log_mtx;
-}	settings_t;
+	pthread_mutex_t		line_mtx;
+	pthread_mutex_t		log_mtx;
+	pthread_mutex_t		validate_mtx;
+	pthread_mutex_t		etx;
+	pthread_cond_t		sig;
+	int					pr_stat;
+	t_node				*fifo_head;
+}	t_settings;
 
-typedef struct dongle_s
+typedef struct s_dongle
 {
 	pthread_mutex_t		mtx;
 	pthread_cond_t		cond;
 	int					id;
-	uint32_t			ms_cooldown;
-	uint32_t			cooldown_counter;
+	uint32_t			ms_cld;
+	int					cld_count;
 	int					is_busy;
-}	dongle_t;
+}	t_dongle;
 
-typedef struct coder_s
+typedef struct s_coder
 {
 	int				id;
 	uint32_t		ms_burn;
-	uint32_t		burn_counter_ms;
+	uint32_t		bur_c_ms;
 	uint32_t		ms_compile;
+	uint32_t		ms_l;
+	uint32_t		ms_r;
 	uint32_t		ms_debug;
 	uint32_t		ms_refactor;
-	uint32_t		comp_counter;
-	dongle_t		*d_left;
-	dongle_t		*d_right;
+	uint32_t		coms_left;
+	uint32_t		ms_refac_started;
+	uint32_t		ms_finished;
+	t_dongle		*d_left;
+	t_dongle		*d_right;
 	pthread_mutex_t	*log_mtx;
+	pthread_mutex_t	*line_mtx;
+	pthread_mutex_t	status_mtx;
 	pthread_t		thread_id;
+	uint8_t			ready;
 	int				running;
-	// sem_t			running;
-}	coder_t;
+	t_settings		*s;
+}	t_coder;
 
-settings_t	ft_parse_input(int argc, char **argv);
-void		ft_log(uint32_t timestamp, uint32_t id, char *message);
+t_settings	*ft_parse_input(int argc, char **argv);
+void		ft_log(t_coder *coder);
 void		*ft_handler(void *coder);
-void		ft_start(coder_t arr[]);
-void		ft_join(coder_t arr[]);
 uint32_t	ft_timestamp(void);
-void		ft_log(uint32_t timestamp, uint32_t id, char *message);
-void		ft_start(coder_t *coder);
-void		ft_join(coder_t *coder);
-coder_t	*ft_init_coders(settings_t *settings, dongle_t * dongles);
-dongle_t	*ft_init_dongles(settings_t *settings);
-
-void	*ft_start_monitor(void *coders);
-
-
+t_coder		*ft_init_coders(t_settings *settings, t_dongle *dongles);
+t_dongle	*ft_init_dongles(t_settings *settings);
+void		*ft_start_monitor(void *coders);
+void		ft_append_tree(t_node **head, t_node *node);
+t_node		*ft_delrestruct_tree(t_node **tree, t_node *node_to_del);
+void		*ft_run_fifo_2(void *coders);
+void		*ft_run_fifo(void *coders);
+int			ft_validate(t_coder *coder);
 #endif
