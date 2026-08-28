@@ -65,51 +65,51 @@ serialized through a logging mutex so lines are never interleaved or corrupted.
 
 ## Blocking cases handled
 
-- **Deadlock prevention.** Taking dongles action is protected by a single shared by
-- all threads mutex, so only one pair is taken in a quant of time. 
-- A coder always releases one dongle a little later, then another,
-- so if these dongles are being waited by another coder the priority will be given to a newer coder.
+- **Deadlock prevention.** Taking dongles action is protected by a single
+shared by all threads mutex, so only one pair is taken in a quant of time. 
+A coder always releases one dongle a little later, then another,
+so if these dongles are being waited by another coder the priority will be given to a newer coder.
 - **Starvation prevention.** Coders wanting to eat/compile don't spin-fight for shared state directly;
-- instead they register into a shared, timestamp-ordered queue and are dispatched by a dedicated scheduler
-- thread in FIFO order (by default), guaranteeing that a coder that has been waiting longest
-- is served first rather than being repeatedly outraced by neighbors.
+instead they register into a shared, timestamp-ordered queue and are dispatched by a dedicated scheduler
+thread in FIFO order (by default), guaranteeing that a coder that has been waiting longest
+is served first rather than being repeatedly outraced by neighbors.
 - **Cooldown handling.** Each dongle tracks `cld_count` (the timestamp it was released)
-- and `ms_cld` (the required cooldown). `ft_validate()` refuses to hand out a dongle
-- whose cooldown window hasn't elapsed yet, under `validate_mtx`, so a dongle can't
-- be reused faster than the configured cooldown even under contention.
+and `ms_cld` (the required cooldown). `ft_validate()` refuses to hand out a dongle
+whose cooldown window hasn't elapsed yet, under `validate_mtx`, so a dongle can't
+be reused faster than the configured cooldown even under contention.
 - **Precise burnout detection.** A monitor thread periodically compares each coder's
-- `bur_c_ms` (last compile-start timestamp) against `ms_burn` under the shared state mutex,
-- so burnout is detected against a consistent snapshot rather than a value that could be
-- mid-update by the coder thread itself. Once a coder is found to have burned out,
-- `prog_status` is dropped and all coder threads are woken via `pthread_cond_broadcast()`
-- so none of them block indefinitely waiting on a condition that will never again be signaled for their own benefit.
+`bur_c_ms` (last compile-start timestamp) against `ms_burn` under the shared state mutex,
+so burnout is detected against a consistent snapshot rather than a value that could be
+mid-update by the coder thread itself. Once a coder is found to have burned out,
+`prog_status` is dropped and all coder threads are woken via `pthread_cond_broadcast()`
+so none of them block indefinitely waiting on a condition that will never again be signaled for their own benefit.
 - **Log serialization.** All log lines for a given event are written while holding a single shared `log_mtx`,
-- so concurrent coders never interleave partial lines, and log output is always attributable to one complete state transition at a time.
+so concurrent coders never interleave partial lines, and log output is always attributable to one complete state transition at a time.
 
 ## Thread synchronization mechanisms
 
 - **`pthread_mutex_t etx`** — guards a coder's wait for its turn to run (`ready` flag) and the very short window in which it takes hold
-- of its dongles at the start of a cycle. Combined with the condition variable below, this is the coder's "wait to be scheduled" gate.
+of its dongles at the start of a cycle. Combined with the condition variable below, this is the coder's "wait to be scheduled" gate.
 - **`pthread_mutex_t validate_mtx`** — protects the `is_busy` and `cld_count` fields of each dongle.
-- Any check-and-set on dongle availability (`ft_validate()`) happens entirely under this lock,
-- so two coders can never both observe a dongle as free and grab it simultaneously — this is
-- the mutex that actually prevents the classic "double-eating" race on a shared fork/dongle.
+Any check-and-set on dongle availability (`ft_validate()`) happens entirely under this lock,
+so two coders can never both observe a dongle as free and grab it simultaneously — this is
+the mutex that actually prevents the classic "double-eating" race on a shared fork/dongle.
 - **`pthread_mutex_t line_mtx`** — protects the shared scheduling queue
-- (the BST rooted at `settings->fifo_head`). Every insertion (`ft_append_tree`),
-- search, and removal (`ft_delrestruct_tree`) of a node happens under this single lock,
-- taken once for the whole tree traversal rather than per-node, so the tree's shape
-- is never observed or mutated inconsistently by two threads at once.
+(the BST rooted at `settings->fifo_head`). Every insertion (`ft_append_tree`),
+search, and removal (`ft_delrestruct_tree`) of a node happens under this single lock,
+taken once for the whole tree traversal rather than per-node, so the tree's shape
+is never observed or mutated inconsistently by two threads at once.
 - **`pthread_mutex_t status_mtx`** (per coder) — protects a single coder's own `ready` state,
-- which is read by that coder's thread, written by the queue producer, and written again by the scheduler
-- when dispatching it. Keeping this per-coder (rather than global) avoids serializing
-- unrelated coders against each other for a field only they and the scheduler touch.
+which is read by that coder's thread, written by the queue producer, and written again by the scheduler
+when dispatching it. Keeping this per-coder (rather than global) avoids serializing
+unrelated coders against each other for a field only they and the scheduler touch.
 - **`pthread_mutex_t log_mtx`** — serializes all `printf` calls in `ft_log()` so log lines
-- from different coder threads are never torn or interleaved mid-line.
+from different coder threads are never torn or interleaved mid-line.
 - **`pthread_cond_t sig`** — the condition variable coders wait on (under `etx`) until the
-- scheduler marks them `ready`. The scheduler and the monitor both call `pthread_cond_broadcast()` after
-- updating shared state (dispatching a coder, or shutting the simulation down), so every
-- waiting coder re-checks its condition instead of relying on being individually targeted —
-- this is what lets a coder block efficiently (no busy-waiting) while still being guaranteed to wake up promptly, including on shutdown.
+scheduler marks them `ready`. The scheduler and the monitor both call `pthread_cond_broadcast()` after
+updating shared state (dispatching a coder, or shutting the simulation down), so every
+waiting coder re-checks its condition instead of relying on being individually targeted —
+this is what lets a coder block efficiently (no busy-waiting) while still being guaranteed to wake up promptly, including on shutdown.
 
 **Example — race condition avoided:** two coders sharing dongle `d`.
 Both call `ft_validate()` around the same time. Because `validate_mtx` is held for the entire

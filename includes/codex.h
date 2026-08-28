@@ -52,7 +52,6 @@ typedef struct s_settings
 typedef struct s_dongle
 {
 	pthread_mutex_t		mtx;
-	pthread_cond_t		cond;
 	int					id;
 	uint32_t			ms_cld;
 	int					cld_count;

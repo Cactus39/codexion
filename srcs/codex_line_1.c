@@ -128,7 +128,6 @@ void	*ft_run_fifo(void *cdr)
 // 	// printf("%d\n", root->id);
 // 	if (root->parent == NULL)
 // 		printf("%d\n", root->value);
-// 		// printf("🟥\n");
 // 	else if (root->parent->left == root)
 // 		printf("%d\n", root->value);
 // 	else if (root->parent->right == root)
